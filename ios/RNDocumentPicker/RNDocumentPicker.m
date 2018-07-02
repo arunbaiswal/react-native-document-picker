@@ -11,7 +11,7 @@
 #define IDIOM    UI_USER_INTERFACE_IDIOM()
 #define IPAD     UIUserInterfaceIdiomPad
 
-@interface RNDocumentPicker () <UIDocumentMenuDelegate,UIDocumentPickerDelegate>
+@interface RNDocumentPicker () <UIDocumentMenuDelegate,UIDocumentPickerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 @end
 
 
@@ -42,11 +42,10 @@ RCT_EXPORT_METHOD(show:(NSDictionary *)options
                   callback:(RCTResponseSenderBlock)callback) {
 
     NSArray *allowedUTIs = [RCTConvert NSArray:options[@"filetype"]];
+
     UIDocumentMenuViewController *documentPicker = [[UIDocumentMenuViewController alloc] initWithDocumentTypes:(NSArray *)allowedUTIs inMode:UIDocumentPickerModeImport];
-
-    [composeCallbacks addObject:callback];
-
-
+    
+   
     documentPicker.delegate = self;
     documentPicker.modalPresentationStyle = UIModalPresentationFormSheet;
 
@@ -61,8 +60,47 @@ RCT_EXPORT_METHOD(show:(NSDictionary *)options
         [documentPicker.popoverPresentationController setSourceRect: CGRectMake([left floatValue], [top floatValue], 0, 0)];
         [documentPicker.popoverPresentationController setSourceView: rootViewController.view];
     }
-
+    //
+    [documentPicker addOptionWithTitle:@"Photos" image:nil order:UIDocumentMenuOrderFirst handler:^{
+        
+        UIImagePickerController *imagePickerController = [[UIImagePickerController alloc] init];
+        imagePickerController.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+        imagePickerController.delegate = self;
+        [rootViewController presentViewController:imagePickerController animated:YES completion:nil];
+        
+    }];
+    [documentPicker addOptionWithTitle:@"Camera" image:nil order:UIDocumentMenuOrderFirst handler:^{
+        
+        UIImagePickerController *imagePickerController = [[UIImagePickerController alloc] init];
+        imagePickerController.sourceType = UIImagePickerControllerSourceTypeCamera;
+        imagePickerController.delegate = self;
+        [rootViewController presentViewController:imagePickerController animated:YES completion:nil];
+        
+    }];
+    
+    //  Add object  After Selection
+      [composeCallbacks addObject:callback];
+    
     [rootViewController presentViewController:documentPicker animated:YES completion:nil];
+}
+- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
+   // NSLog(@"Url ===> %@",[info valueForKey:@"UIImagePickerControllerReferenceURL"]);
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    RCTResponseSenderBlock callback = [composeCallbacks lastObject];
+    [composeCallbacks removeLastObject];
+    NSString *imgPath = [[info valueForKey:@"UIImagePickerControllerImageURL"] absoluteString];
+    NSArray *splitArr = [imgPath  componentsSeparatedByString:@"/"];
+    NSString *imageName = [splitArr objectAtIndex:[splitArr count] - 1];
+    NSArray *imageExtentionArr = [imageName componentsSeparatedByString:@"."];
+    NSString *imgExtenstion = [imageExtentionArr objectAtIndex:1];
+    NSString *imageType = [@"image/" stringByAppendingString:imgExtenstion];
+    
+    NSMutableDictionary* result = [NSMutableDictionary dictionary];
+    [result setValue:imgPath forKey:@"uri"];
+    [result setValue: [splitArr objectAtIndex:[splitArr count] - 1]  forKey:@"fileName"];
+    [result setValue: imageType  forKey:@"type"];
+    callback(@[[NSNull null], result]);
+
 }
 
 
